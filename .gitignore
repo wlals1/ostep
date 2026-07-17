@@ -1,7 +1,7 @@
 *
+!*/
 !*.c
 !*.h
+!*.md
 !Makefile
 !.gitignore
-!README.md
-!*/
