@@ -5,3 +5,6 @@
 !*.md
 !Makefile
 !.gitignore
+
+# Claude Code 작업 폴더 (워크트리·설정) — 화이트리스트보다 뒤에 있어야 함
+.claude/
