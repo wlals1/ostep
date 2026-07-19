@@ -5,9 +5,9 @@
 
 ---
 
-## 진단 요약 (2026-07-16 기준)
+## 진단 요약 (2026-07-16 작성, 2026-07-19 갱신)
 
-- **현재 위치**: OSTEP 2장 (Introduction). `mem.c` 예제 완전 소화, `cpu.c` 다음 차례.
+- **현재 위치**: Phase 1 CPU Virtualization 완료 (Ch 4~9). 다음은 Ch 10 Multiprocessor Scheduling(선택) 또는 Phase 2 Memory Virtualization.
 - **강점**: 논리적 추론력 중상급. 반례 생성·논리 반박 잘함. 알고리즘은 골드 수준.
 - **약점 / 주의**:
   1. C 시스템 프로그래밍 관용구 경험 부족 (헤더, 포인터, 캐스팅). → 코드 예제를 많이 돌려 몸으로 익히기.
@@ -38,12 +38,13 @@ xv6를 Concurrency 직후에 넣는 이유: 그 시점이면 프로세스/주소
 
 ---
 
-## Phase 0 — Introduction (지금 여기)
+## Phase 0 — Introduction ✅
 
 - **Ch 2 Introduction**: 가상화의 세 가지 환상 맛보기. `cpu.c`, `mem.c`, `threads.c`, `io.c` 예제.
-- ✅ `mem.c` 완료 — 프로세스별 사적 주소 공간, 가상 vs 물리, ASLR.
-- ⬜ `cpu.c` — 프로세스 여러 개가 하나의 CPU를 나눠 쓰는 착시.
-- ⬜ `threads.c` — 공유 변수 경쟁 상태 미리보기 (Concurrency 예고편).
+- ✅ `mem.c` — 프로세스별 사적 주소 공간, 가상 vs 물리, ASLR.
+- ✅ `cpu.c` — 프로세스 여러 개가 하나의 CPU를 나눠 쓰는 착시 (time-sharing, 타이머 인터럽트).
+- ✅ `threads.c` — 공유 변수 경쟁 상태 미리보기 (Concurrency 예고편).
+- ✅ `io.c` — 영속성, 시스템콜로 파일 쓰기.
 - **남겨둔 질문(지금 답 안 해도 됨)**: 가상→물리 번역에 왜 하드웨어(MMU)가 필수인가 → Ch 15에서 정식으로.
 
 ## Phase 1 — CPU Virtualization (Ch 4~10)
@@ -167,10 +168,14 @@ xv6를 Concurrency 직후에 넣는 이유: 그 시점이면 프로세스/주소
 - [x] 워밍업 프로젝트: reverse (파일 I/O, 연결 리스트, strdup 소유권, stat/inode, valgrind 클린)
 - [x] 워밍업 프로젝트: unix-utilities (wcat, wgrep=strstr, wzip=fwrite/RLE, wunzip=fread, 왕복 검증)
 - [x] 워밍업 프로젝트: ssort (qsort + 비교 함수/함수 포인터, void** 캐스팅, realloc 동적 배열)
-- [~] Phase 1: CPU Virtualization (Ch 4~10)
+- [x] Phase 1: CPU Virtualization (Ch 4~9, Ch 10은 선택으로 남김)
   - [x] Ch 4 Process (프로그램 vs 프로세스, machine state, 상태 Running/Ready/Blocked, PCB, 생성 5단계)
-  - [x] Ch 5 Process API (fork/exec/wait, fd 리다이렉션, 셸=프로세스/프로세스 트리)
-  - [ ] Ch 6 Limited Direct Execution ← 다음
+  - [x] Ch 5 Process API (fork/exec/wait, fd 리다이렉션, 셸=프로세스/프로세스 트리, 숙제 q1~q8)
+  - [x] Ch 6 Limited Direct Execution (트랩·트랩 테이블, 타이머 인터럽트, trapframe vs context, xv6 swtch 매핑, 숙제: 시스템콜 172ns vs 문맥교환 1.2μs 실측)
+  - [x] Ch 7 Scheduling: Introduction (FIFO/SJF/STCF/RR, 반환 ↔ 응답 트레이드오프)
+  - [x] Ch 8 MLFQ (5규칙, starvation/gaming/부스트, 정책 vs 메커니즘)
+  - [x] Ch 9 Proportional Share (Lottery/Stride, CFS는 stride의 실전판)
+  - [ ] Ch 10 Multiprocessor Scheduling (선택) ← 다음 또는 Phase 2로
 - [ ] Phase 2: Memory Virtualization (Ch 13~23)
 - [ ] Phase 3: Concurrency (Ch 26~34)
 - [ ] Phase 4: xv6 커널 분석

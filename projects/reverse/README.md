@@ -131,8 +131,7 @@ valgrind ./reverse text.txt        # "no leaks" + "0 errors" 확인
 
 ---
 
-## 7. 다음 단계
+## 7. 관련
 
-- (선택) 워밍업 프로젝트 더: `wcat`, `wgrep`
-- 본 커리큘럼: OSTEP **Ch 4 The Abstraction: Process** (CPU 가상화 시작)
-- 전체 로드맵은 `OSTEP_xv6_로드맵.md` 참고.
+- 이어지는 워밍업: [unix-utilities](../unix-utilities/README.md) (wcat, wgrep, wzip, wunzip) · [sort](../sort/README.md) (ssort)
+- 전체 로드맵: [ROADMAP.md](../../ROADMAP.md)

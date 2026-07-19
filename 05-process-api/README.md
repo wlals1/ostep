@@ -113,7 +113,7 @@ execvp("wc", ...)                         // wc가 fd 1(=파일)에 출력
 
 ---
 
-## 다음
-- Ch 5 나머지 숙제 (fork/exec/wait 코딩 문제) 또는 Ch 6 (Limited Direct Execution)
+## 더 볼 것
+- 숙제 정리: [homework/](./homework/README.md) — q1~q8 (COW, fd 공유, pipe, dup2, zombie)
 - 나중에: **processes-shell 프로젝트** — 여기서 배운 fork/exec/wait/리다이렉션/파이프를 직접 구현
-- 전체 로드맵: `OSTEP_xv6_로드맵.md`
+- 전체 로드맵: [ROADMAP.md](../ROADMAP.md)

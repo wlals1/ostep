@@ -103,3 +103,5 @@ pipe(p);
 - **pipe 안 쓰는 끝 안 닫으면** 읽는 쪽이 EOF 못 봐 hang.
 
 ---
+
+> 챕터 정리: [../README.md](../README.md) · 전체 로드맵: [ROADMAP.md](../../ROADMAP.md)

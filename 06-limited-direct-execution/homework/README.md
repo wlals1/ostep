@@ -118,6 +118,4 @@ if (rc == 0) {                    // 자식 B
 
 ---
 
-## 다음
-- Ch 7 Scheduling (FIFO, SJF, STCF, 응답시간 vs 반환시간)
-- 전체 로드맵: `OSTEP_xv6_로드맵.md`
+> 챕터 정리: [../README.md](../README.md) · 전체 로드맵: [ROADMAP.md](../../ROADMAP.md)

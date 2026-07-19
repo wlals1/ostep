@@ -79,6 +79,4 @@ Ch7의 딜레마 해결: **실행시간을 모르면서도** 반환(짧은 작�
 
 ---
 
-## 다음
-- Ch 9 Lottery/Stride Scheduling (비례 배분)
-- 전체 로드맵: `OSTEP_xv6_로드맵.md`
+> 전체 로드맵: [ROADMAP.md](../ROADMAP.md)

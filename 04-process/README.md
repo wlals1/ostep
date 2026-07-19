@@ -90,3 +90,7 @@ OS의 가장 기본 추상화 = **프로세스**. "실행 중인 프로그램"�
 - **Blocked → Ready(바로 Running 아님).**
 - **context switch 시 전체 레지스터 저장** (인터럽트는 함수 호출이 아니라 caller/callee 규약이 안 통함).
 - **시뮬레이터는 타이머 선점 없음**(IO/END에만 전환) — 실제 시스템(cpu.c)과 다른 단순화.
+
+---
+
+> 전체 로드맵: [ROADMAP.md](../ROADMAP.md)

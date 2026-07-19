@@ -92,4 +92,4 @@ for job in list:
 
 ## 다음
 - Ch 10 Multiprocessor Scheduling (선택) 또는 Phase 2 Memory Virtualization으로
-- 전체 로드맵: `OSTEP_xv6_로드맵.md`
+- 전체 로드맵: [ROADMAP.md](../ROADMAP.md)

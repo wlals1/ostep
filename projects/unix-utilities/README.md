@@ -138,3 +138,7 @@ printf "aaaaabbbc" > t.txt ; ./wzip t.txt | xxd       # 05..61 03..62 01..63
 # 왕복 (핵심 검증)
 ./wzip t.txt > t.z ; diff <(./wunzip t.z) t.txt && echo "왕복 OK"
 ```
+
+---
+
+> 전체 로드맵: [ROADMAP.md](../../ROADMAP.md)

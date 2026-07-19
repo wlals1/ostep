@@ -155,7 +155,7 @@ swtch:
 
 ---
 
-## 다음
-- Ch 6 숙제 (시스템콜·문맥교환 비용 측정) → Ch 7 Scheduling
+## 더 볼 것
+- 숙제 정리: [homework/](./homework/README.md) — 시스템콜·문맥교환 비용 실측
 - xv6 남은 것: `scheduler()`/`sched()`는 봤고, 나중에 Phase 4에서 RISC-V로 랩.
-- 전체 로드맵: `OSTEP_xv6_로드맵.md`
+- 전체 로드맵: [ROADMAP.md](../ROADMAP.md)
