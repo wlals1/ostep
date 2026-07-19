@@ -38,7 +38,6 @@ int main(int argc, char *argv[]) {
           exit(1);
         }
       }
-      free(line);
       fclose(fp);
     }
   } else {
@@ -58,8 +57,8 @@ int main(int argc, char *argv[]) {
         exit(1);
       }
     }
-    free(line);
   }
+  free(line);
 
   // sort
   qsort(lines, count, sizeof(char *), compare);

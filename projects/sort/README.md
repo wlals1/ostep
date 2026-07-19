@@ -37,9 +37,11 @@ diff <(./ssort input.txt) <(sort input.txt)    # 시스템 sort와 대조
 valgrind ./ssort input.txt                     # 누수·에러 0 확인
 ```
 
-## 알려진 이슈 (TODO)
+## 잡았던 버그 (use-after-free)
 
-- 파일을 **2개 이상** 넘기면: 파일 루프 안에서 `free(line)` 후 `line = NULL; len = 0;`으로 리셋하지 않아, 다음 파일의 `getline`이 해제된 버퍼를 다시 사용 (use-after-free). `free(line)`을 루프 밖으로 빼거나 free 후 리셋 필요. (파일 1개·stdin은 문제없음)
+- 원래는 파일 루프 **안**에서 `free(line)`을 호출하면서 `line = NULL; len = 0;` 리셋을 안 함 → 파일 2개 이상이면 다음 파일의 `getline`이 해제된 버퍼를 재사용 (use-after-free). 파일 1개·stdin에선 증상이 없어 숨어 있었음.
+- 수정: getline 버퍼는 파일이 바뀌어도 재사용해도 되므로 `free(line)`을 루프 밖으로 빼 **마지막에 한 번만** 호출. (free 후 포인터를 계속 쓸 거라면 반드시 NULL/0 리셋 — "이 할당 누가 소유/해제?" 규칙의 연장)
+- 검증: 파일 3개 입력을 시스템 `sort`와 diff 대조 + valgrind 누수·에러 0.
 
 ---
 
