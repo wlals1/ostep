@@ -30,7 +30,6 @@ int run_builtin(char **args, int count) {
     return 1;
   }
   if (strcmp(args[0], "path") == 0) {
-    // path 갱신 (아래 참고)
     for (int k = 0; path[k] != NULL; k++) {
       free(path[k]);
       path[k] = NULL;
@@ -156,7 +155,6 @@ int main(int argc, char *argv[]) {
     char *cmd = NULL;
     char *rest = line;
     while ((cmd = strsep(&rest, "&")) != NULL) {
-      // cmd 를 배열에 저장해서 while이 끝나고 for문으로 fork, wait
       int pid = exec_command(cmd);
       if (pid > 0)
         child_count++;
