@@ -5,10 +5,11 @@
 
 ---
 
-## 진단 요약 (2026-07-16 작성, 2026-07-19 갱신)
+## 진단 요약 (2026-07-16 작성, 2026-07-22 갱신)
 
-- **현재 위치**: Phase 1 CPU Virtualization 완료 (Ch 4~9). 다음은 Ch 10 Multiprocessor Scheduling(선택) 또는 Phase 2 Memory Virtualization.
+- **현재 위치**: Phase 2 Memory Virtualization — Ch 13~17 완료, **Ch 18 Paging 진행 중**.
 - **강점**: 논리적 추론력 중상급. 반례 생성·논리 반박 잘함. 알고리즘은 골드 수준.
+  - 최근 성장: wish 셸을 처음부터 완성(개념→코드 간극 메움). VSZ/RSS 실측, SIZESORT+ 반례 설계 등 **스스로 실험을 설계해 검증**하는 습관이 자리잡는 중.
 - **약점 / 주의**:
   1. C 시스템 프로그래밍 관용구 경험 부족 (헤더, 포인터, 캐스팅). → 코드 예제를 많이 돌려 몸으로 익히기.
   2. **앞선 챕터 내용을 미리 물으면 위축됨.** 순서 절대 건너뛰지 않기. 지금 챕터가 요구하는 것만.
@@ -20,6 +21,11 @@
   - 헤더 누락 에러 반복 (stddef.h, pthread.h, unistd.h, string.h, sys/stat.h). 컴파일 에러 = 선언/헤더, 링크 에러 = 라이브러리 구분 습관화.
   - **메모리 소유권**: `free`는 재귀 아님(구조체 내부 포인터 따로 free). alias된 포인터 이른 free → use-after-free, 안 하면 leak. reverse에서 체득 — 새 코드마다 "이 할당 누가 소유/해제?" 자문.
   - 시스템 함수 반환값 미확인 습관 (fopen/stat NULL·-1 체크 빠뜨림). "성공/실패 반환 → 항상 확인 후 사용" 반복 강조.
+  - **"어디서 일어나는가"와 "왜 일어나는가"를 섞어 답하는 경향** (예: lazy allocation 질문에 "mmap 영역에 할당됨"으로 답). 질문이 메커니즘인지 이유인지 구분.
+  - **가상 크기 ≠ 물리 소비** (malloc 성공 ≠ 물리 메모리 확보). Ch13 VSZ/RSS 실측으로 잡음 — 스와핑(21~22장)에서 재확인.
+  - **감소(스택) 세그먼트 오프셋**: 하위 비트가 아니라 `주소공간크기 - VA`(끝에서의 거리). Ch16에서 헷갈렸던 것.
+  - **우연의 일치를 증거로 착각** ⚠ 신규: 두 설정의 출력이 같다고 "같은 것"이라 결론내림(Ch17 SIZESORT+). → **차이가 드러나는 반례를 직접 설계해서 검증**하는 습관. 이게 이 공부의 핵심 근육.
+  - **문제 조건(정렬·헤더) 빼먹고 계산**: `-a 8`에서 10바이트 요청=16 소비, `-H 8`에서 반환 주소=블록시작+8. 시뮬레이터 숙제마다 조건 먼저 체크.
 
 ---
 
@@ -45,31 +51,31 @@ xv6를 Concurrency 직후에 넣는 이유: 그 시점이면 프로세스/주소
 - ✅ `cpu.c` — 프로세스 여러 개가 하나의 CPU를 나눠 쓰는 착시 (time-sharing, 타이머 인터럽트).
 - ✅ `threads.c` — 공유 변수 경쟁 상태 미리보기 (Concurrency 예고편).
 - ✅ `io.c` — 영속성, 시스템콜로 파일 쓰기.
-- **남겨둔 질문(지금 답 안 해도 됨)**: 가상→물리 번역에 왜 하드웨어(MMU)가 필수인가 → Ch 15에서 정식으로.
+- **남겨둔 질문(지금 답 안 해도 됨)**: 가상→물리 번역에 왜 하드웨어(MMU)가 필수인가 → Ch 15에서 답함 ✅.
 
-## Phase 1 — CPU Virtualization (Ch 4~10)
+## Phase 1 — CPU Virtualization (Ch 4~10) ✅
 
 여기서 2장에서 못 답한 "context switch가 정확히 어떻게 일어나나"가 풀린다.
 
 - **Ch 4 The Abstraction: Process** — 프로세스란 무엇인가, 상태(Running/Ready/Blocked).
-- **Ch 5 Process API** — `fork()`, `exec()`, `wait()`. ⭐ 손으로 코드 많이 짜볼 것. 네가 좋아할 챕터.
+- **Ch 5 Process API** — `fork()`, `exec()`, `wait()`. ⭐ 손으로 코드 많이 짜볼 것.
 - **Ch 6 Limited Direct Execution** — user/kernel mode, trap, system call, timer interrupt. ⭐ **2장에서 어렵던 "OS가 어떻게 CPU를 뺏나"의 정답.**
 - **Ch 7 Scheduling: Intro** — FIFO, SJF, STCF, 응답시간 vs 반환시간.
 - **Ch 8 MLFQ** — 실전 스케줄러의 원형.
 - **Ch 9 Lottery/Stride** — 비례 배분 스케줄링.
-- **Ch 10 Multiprocessor Scheduling** (선택, 나중에 돌아와도 됨).
-- **체크포인트**: "타이머 인터럽트 → 커널 진입 → 스케줄러 → context switch" 흐름을 그림 없이 말로 설명할 수 있으면 통과.
+- **Ch 10 Multiprocessor Scheduling** — SQMS vs MQMS, 캐시 친화성, work stealing. **Concurrency 끝나고 한 번 더 볼 것** (락·캐시 일관성 개념 잡힌 뒤).
+- **체크포인트 ✅**: "타이머 인터럽트 → 커널 진입 → 스케줄러 → context switch" 흐름 설명 가능.
 
-## Phase 2 — Memory Virtualization (Ch 13~23)
+## Phase 2 — Memory Virtualization (Ch 13~23) ← 진행 중
 
-⭐ **2장에서 널 무너뜨린 CR3 / 페이지 테이블 / 프로세스별 매핑 질문이 전부 여기서 정식으로 답해진다.** 그때 어려웠던 건 실력이 아니라 이 챕터를 안 배웠기 때문.
+⭐ **2장에서 널 무너뜨린 CR3 / 페이지 테이블 / 프로세스별 매핑 질문이 전부 여기서 정식으로 답해진다.**
 
-- **Ch 13 Address Spaces** — 주소 공간 추상화.
-- **Ch 14 Memory API** — `malloc`/`free`, 흔한 메모리 버그(누수, dangling, double free).
-- **Ch 15 Address Translation** — base/bound, 하드웨어 지원의 시작. (MMU가 왜 필요한지 여기서 정답)
-- **Ch 16 Segmentation**.
-- **Ch 17 Free Space Management** — free list, 할당자 내부.
-- **Ch 18 Paging: Intro** — 페이지, 프레임, 페이지 테이블. ⭐
+- ✅ **Ch 13 Address Spaces** — 주소 공간 추상화, 세 목표(투명성/효율/보호), lazy allocation 실측(VSZ vs RSS).
+- ✅ **Ch 14 Memory API** — malloc/free, 메모리 버그 5종과 UB, brk/mmap, gdb/valgrind/ASan.
+- ✅ **Ch 15 Address Translation** — base/bounds, 하드웨어 vs OS 책임 분담, "동적"의 의미.
+- ✅ **Ch 16 Segmentation** — 세그먼트별 base/bounds, 감소 세그먼트 오프셋, 공유·보호 비트, 외부 단편화.
+- ✅ **Ch 17 Free Space Management** — 헤더·임베디드 free list, splitting/coalescing, BEST/WORST/FIRST, 탐색 vs 병합 트레이드오프.
+- **Ch 18 Paging: Intro** — 페이지, 프레임, 페이지 테이블. ⭐ ← **지금 여기**
 - **Ch 19 TLB** — 번역 캐싱, 성능. (MMU 성능 이야기 완결)
 - **Ch 20 Advanced Page Tables** — multi-level page table. ⭐ CR3가 가리키는 그 구조.
 - **Ch 21~22 Swapping** — 메커니즘 + 정책(LRU 등).
@@ -84,6 +90,7 @@ xv6를 Concurrency 직후에 넣는 이유: 그 시점이면 프로세스/주소
 - **Ch 30 Condition Variables**.
 - **Ch 31 Semaphores** — ⭐ 생산자-소비자, 리더-라이터. 면접 단골.
 - **Ch 32 Concurrency Bugs** — atomicity/order violation, **deadlock 4조건**.
+- 끝나면 **Ch 10 재방문** (멀티프로세서 스케줄링을 락·캐시 일관성 관점에서).
 - **체크포인트**: 데드락 4조건을 대고, 주어진 코드에서 경쟁 상태를 짚어낼 수 있으면 통과.
 
 ## Phase 4 — xv6 커널 분석 (프로젝트 최종 목표)
@@ -111,29 +118,42 @@ xv6를 Concurrency 직후에 넣는 이유: 그 시점이면 프로세스/주소
 
 ---
 
+## 프로젝트 배치 (ostep-projects)
+
+| 프로젝트 | 시점 | 상태 |
+|----------|------|------|
+| reverse, unix-utilities, sort | 워밍업 | ✅ |
+| **processes-shell (wish)** | Phase 1 끝 | ✅ fork/exec/wait + path 탐색 + `>` 리다이렉션 + `&` 병렬 |
+| memory allocator 계열 | Phase 2 중반~끝 | 예정 (CSAPP malloc lab도 후보) |
+| concurrency 계열 (pzip 등) | Phase 3 | 예정 |
+| xv6 랩 (lottery 스케줄러 등) | Phase 4 | 예정 |
+| fs checker | Phase 5 | 예정 |
+
+---
+
 ## 6주 스케줄 (하루 4시간 / 40일, 2026-07-16 시작)
 
 > 총 예산 ~160h. 진도보다 **깊이 우선** — 체크포인트에서 막히면 그 자리에서 복습, 진도 미루기.
 > 하루 4h 중 3h 학습(읽기+코드) + 1h는 복습/변형 문제/막힌 곳 정리 권장.
 
-### Week 1 — 기초 + CPU 가상화 (Ch 2 마무리 ~ Ch 9)
-- Ch 2: cpu.c, threads.c 실습 마무리
-- Ch 4 Process → Ch 5 Process API(fork/exec/wait, 코드 많이) → Ch 6 Limited Direct Execution ⭐
-- Ch 7 Scheduling → Ch 8 MLFQ → Ch 9 Lottery
-- **주말 체크포인트**: "타이머 인터럽트 → context switch" 말로 설명
+### Week 1 — 기초 + CPU 가상화 (Ch 2 마무리 ~ Ch 9) ✅
+- Ch 2 실습 → Ch 4~6 (LDE ⭐) → Ch 7~9 스케줄링
+- **체크포인트 ✅**: "타이머 인터럽트 → context switch" 말로 설명
 
-### Week 2 — 메모리 가상화 ① (Ch 13~18)
-- Ch 13 Address Spaces → Ch 14 Memory API(malloc 버그) → Ch 15 Address Translation ⭐(MMU 정답)
-- Ch 16 Segmentation → Ch 17 Free Space → Ch 18 Paging Intro ⭐
+### Week 2 — Ch 10 + wish 셸 + 메모리 가상화 ① (Ch 13~17) ✅
+- Ch 10 멀티프로세서 → **wish 셸 프로젝트** (계획엔 없었지만 개념→코드 간극 메우기로 추가, 잘한 선택)
+- Ch 13 Address Spaces → Ch 14 Memory API → Ch 15 Address Translation ⭐
+- Ch 16 Segmentation → Ch 17 Free Space
 
-### Week 3 — 메모리 가상화 ② (Ch 19~22 + 종합)
-- Ch 19 TLB → Ch 20 Multi-level Page Table ⭐(CR3가 가리키는 구조)
+### Week 3 — 메모리 가상화 ② (Ch 18~22 + 종합) ← 지금
+- **Ch 18 Paging Intro ⭐** → Ch 19 TLB → Ch 20 Multi-level Page Table ⭐(CR3가 가리키는 구조)
 - Ch 21~22 Swapping
 - **체크포인트**: 2장의 CR3/페이지테이블 질문 완전 회수 — 같은 가상주소가 안 섞이는 이유 설명
 
 ### Week 4 — 동시성 (Ch 26~32)
 - Ch 26 Intro → Ch 27 Thread API → Ch 28 Locks(CAS/test-and-set)
 - Ch 29 Lock-based DS → Ch 30 Condition Vars → Ch 31 Semaphores ⭐ → Ch 32 Bugs/Deadlock
+- 끝나면 Ch 10 재방문
 - **체크포인트**: 데드락 4조건 + 주어진 코드에서 경쟁 상태 짚기
 
 ### Week 5 — xv6 착수 (환경 + 프로세스/트랩)
@@ -164,19 +184,29 @@ xv6를 Concurrency 직후에 넣는 이유: 그 시점이면 프로세스/주소
 
 ## 진행 현황 트래커
 
-- [x] Ch 2 Introduction — mem.c, cpu.c, threads.c, io.c (2장 완료)
+- [x] Ch 2 Introduction — mem.c, cpu.c, threads.c, io.c
 - [x] 워밍업 프로젝트: reverse (파일 I/O, 연결 리스트, strdup 소유권, stat/inode, valgrind 클린)
 - [x] 워밍업 프로젝트: unix-utilities (wcat, wgrep=strstr, wzip=fwrite/RLE, wunzip=fread, 왕복 검증)
 - [x] 워밍업 프로젝트: ssort (qsort + 비교 함수/함수 포인터, void** 캐스팅, realloc 동적 배열)
-- [x] Phase 1: CPU Virtualization (Ch 4~9, Ch 10은 선택으로 남김)
+- [x] Phase 1: CPU Virtualization (Ch 4~10)
   - [x] Ch 4 Process (프로그램 vs 프로세스, machine state, 상태 Running/Ready/Blocked, PCB, 생성 5단계)
   - [x] Ch 5 Process API (fork/exec/wait, fd 리다이렉션, 셸=프로세스/프로세스 트리, 숙제 q1~q8)
   - [x] Ch 6 Limited Direct Execution (트랩·트랩 테이블, 타이머 인터럽트, trapframe vs context, xv6 swtch 매핑, 숙제: 시스템콜 172ns vs 문맥교환 1.2μs 실측)
   - [x] Ch 7 Scheduling: Introduction (FIFO/SJF/STCF/RR, 반환 ↔ 응답 트레이드오프)
   - [x] Ch 8 MLFQ (5규칙, starvation/gaming/부스트, 정책 vs 메커니즘)
   - [x] Ch 9 Proportional Share (Lottery/Stride, CFS는 stride의 실전판)
-  - [ ] Ch 10 Multiprocessor Scheduling (선택) ← 다음 또는 Phase 2로
-- [ ] Phase 2: Memory Virtualization (Ch 13~23)
-- [ ] Phase 3: Concurrency (Ch 26~34)
+  - [x] Ch 10 Multiprocessor Scheduling (SQMS/MQMS, 캐시 친화성, work stealing이 손해인 반례 실측) — **Concurrency 후 재방문 예정**
+- [x] 프로젝트: processes-shell **wish** (fork/execv/wait, access로 path 탐색, dup2 리다이렉션, & 병렬 — "개념→코드" 간극 해소)
+- [ ] Phase 2: Memory Virtualization (Ch 13~23) ← 진행 중
+  - [x] Ch 13 Address Spaces (세 목표, 코드/힙/스택 배치, VSZ vs RSS로 lazy allocation 실측, pmap)
+  - [x] Ch 14 Memory API (버그 5종과 UB, brk/mmap, gdb/valgrind/ASan 실습, shadow memory)
+  - [x] Ch 15 Address Translation (base/bounds, "동적"=실행 시점 번역, HW vs OS 책임, 신뢰 경계)
+  - [x] Ch 16 Segmentation (명시적/암묵적 판별, 감소 세그먼트 오프셋, 코드 공유, 외부 단편화)
+  - [x] Ch 17 Free Space Management (헤더, 임베디드 free list, BEST/WORST/FIRST 실측, SIZESORT++FIRST=BEST 반례 검증, 탐색 vs 병합 트레이드오프)
+  - [ ] Ch 18 Paging: Intro ← **지금**
+  - [ ] Ch 19 TLB
+  - [ ] Ch 20 Advanced Page Tables
+  - [ ] Ch 21~22 Swapping
+- [ ] Phase 3: Concurrency (Ch 26~34) → 끝나고 Ch 10 재방문
 - [ ] Phase 4: xv6 커널 분석
 - [ ] Phase 5: Persistence (Ch 36~43)
