@@ -1,5 +1,5 @@
 /*
- * mm-implicit.c — Implicit free list allocator with boundary tags
+ * mm-explicit.c — Explicit free list allocator with boundary tags
  *
  *   블록 구조:  [헤더 4B][payload][푸터 4B]
  *               헤더/푸터 = size | alloc  (8정렬이라 하위 3비트가 남아 alloc
@@ -14,7 +14,7 @@
  *               ③ 다음이 에필로그 → extend_heap 후 흡수 (복사 없음)
  *               ④ 그 외 → malloc + memcpy + free
  *
- *   점수: 75/100  (util 51 + thru 24, 5회 실행 중앙값)
+ *   점수: 89/100  (util 49 + thru 40, 5회 실행 중앙값)
  *
  *   트레이스별 결과:
  *     amptjp 99% / cccp 99% / cp-decl 99% / expr 100%   ← 실제 프로그램은 거의
@@ -84,7 +84,7 @@ team_t team = {
 #endif
 
 /* ---------- 전역/선언 ---------- */
-static char *heap_listp; /* 프롤로그 블록의 bp */
+static char *heap_listp;
 static char *free_listp = NULL;
 
 static int mm_check(void);
@@ -200,22 +200,21 @@ static void *coalesce(void *bp) {
   size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
   size_t size = GET_SIZE(HDRP(bp));
 
-  if (prev_alloc && next_alloc) { /* ① */
-    /* 뺄 것 없음 */
-  } else if (prev_alloc && !next_alloc) { /* ② 뒤만 free */
+  if (prev_alloc && next_alloc) {
+  } else if (prev_alloc && !next_alloc) {
     void *next = NEXT_BLKP(bp);
     remove_free(next);
     size += GET_SIZE(HDRP(next));
     PUT(HDRP(bp), PACK(size, 0));
     PUT(FTRP(bp), PACK(size, 0));
-  } else if (!prev_alloc && next_alloc) { /* ③ 앞만 free */
+  } else if (!prev_alloc && next_alloc) {
     void *prev = PREV_BLKP(bp);
     remove_free(prev);
     size += GET_SIZE(HDRP(prev));
     PUT(HDRP(prev), PACK(size, 0));
     PUT(FTRP(prev), PACK(size, 0));
     bp = prev;
-  } else { /* ④ 양쪽 free */
+  } else {
     void *prev = PREV_BLKP(bp);
     void *next = NEXT_BLKP(bp);
     remove_free(prev);
@@ -226,7 +225,7 @@ static void *coalesce(void *bp) {
     bp = prev;
   }
 
-  insert_free(bp); /* ★ 모든 경우 공통. 마지막에 한 번 */
+  insert_free(bp);
   return bp;
 }
 
@@ -244,9 +243,9 @@ static void *extend_heap(size_t words) {
   if ((long)(bp = mem_sbrk(size)) == -1)
     return NULL;
 
-  PUT(HDRP(bp), PACK(size, 0)); /* 옛 에필로그를 새 블록 헤더로 덮어씀 */
-  PUT(FTRP(bp), PACK(size, 0));         /* 푸터 */
-  PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1)); /* 맨 끝에 새 에필로그 */
+  PUT(HDRP(bp), PACK(size, 0));
+  PUT(FTRP(bp), PACK(size, 0));
+  PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));
 
   return coalesce(bp);
 }
@@ -259,11 +258,11 @@ int mm_init(void) {
   free_listp = NULL;
   if ((heap_listp = mem_sbrk(4 * WSIZE)) == (void *)-1)
     return -1;
-  PUT(heap_listp + (0 * WSIZE), 0);              /* 패딩 (정렬용) */
-  PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1)); /* 프롤로그 헤더 */
-  PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1)); /* 프롤로그 푸터 */
-  PUT(heap_listp + (3 * WSIZE), PACK(0, 1));     /* 에필로그 헤더 */
-  heap_listp += (2 * WSIZE); /* 프롤로그 bp를 가리키게 */
+  PUT(heap_listp + (0 * WSIZE), 0);
+  PUT(heap_listp + (1 * WSIZE), PACK(DSIZE, 1));
+  PUT(heap_listp + (2 * WSIZE), PACK(DSIZE, 1));
+  PUT(heap_listp + (3 * WSIZE), PACK(0, 1));
+  heap_listp += (2 * WSIZE);
 
   if (extend_heap(CHUNKSIZE / WSIZE) == NULL)
     return -1;
@@ -292,14 +291,14 @@ static void place(void *bp, size_t asize) {
 
   remove_free(bp);
 
-  if ((csize - asize) >= (2 * DSIZE)) { /* 쪼갤 수 있음 */
+  if ((csize - asize) >= (2 * DSIZE)) {
     PUT(HDRP(bp), PACK(asize, 1));
     PUT(FTRP(bp), PACK(asize, 1));
     bp = NEXT_BLKP(bp);
     PUT(HDRP(bp), PACK(csize - asize, 0));
     PUT(FTRP(bp), PACK(csize - asize, 0));
     insert_free(bp);
-  } else { /* 통째로 할당 (남는 건 내부 단편화로 감수) */
+  } else {
     PUT(HDRP(bp), PACK(csize, 1));
     PUT(FTRP(bp), PACK(csize, 1));
   }
@@ -317,9 +316,9 @@ void *mm_malloc(size_t size) {
   if (size == 0)
     return NULL;
 
-  asize = ALIGN(size + DSIZE); /* 헤더+푸터를 붙이고 8 올림 */
+  asize = ALIGN(size + DSIZE);
   if (asize < 2 * DSIZE)
-    asize = 2 * DSIZE; /* 최소 블록 크기 16 보장 */
+    asize = 2 * DSIZE;
 
   if ((bp = find_fit(asize)) != NULL) {
     place(bp, asize);
@@ -409,7 +408,7 @@ void *mm_realloc(void *ptr, size_t size) {
   if (size < copysize)
     copysize = size;
   memcpy(bp, ptr, copysize);
-  mm_free(ptr);
+  s mm_free(ptr);
   CHECK();
   return bp;
 }
