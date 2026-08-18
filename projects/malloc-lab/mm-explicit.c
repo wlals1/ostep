@@ -15,18 +15,6 @@
  *               ④ 그 외 → malloc + memcpy + free
  *
  *   점수: 89/100  (util 49 + thru 40, 5회 실행 중앙값)
- *
- *   트레이스별 결과:
- *     amptjp 99% / cccp 99% / cp-decl 99% / expr 100%   ← 실제 프로그램은 거의
- * 완벽 coalescing 66% (thru는 최고) random 92% / random2 92% binary
- * 55%/184Kops,  binary2 51%/54~114Kops        ← ★ 병목 realloc 100%,  realloc2
- * 87%                        ← 제자리 확장으로 27%/34%에서 개선
- *
- *   병목 분석:
- *     binary 패턴 = [작은][큰][작은][큰]... 을 할당하고 작은 것만 free
- *       → util: 작은 free 블록이 큰 할당 블록에 가로막혀 병합 불가 (외부
- * 단편화) → thru: find_fit이 매번 힙 전체를 순회. 할당된 블록까지 전부 훑음.
- * O(n²) → 다음 단계: explicit free list (free 블록만 연결) → 둘 다 개선 기대
  */
 #include <assert.h>
 #include <stdio.h>
@@ -408,7 +396,7 @@ void *mm_realloc(void *ptr, size_t size) {
   if (size < copysize)
     copysize = size;
   memcpy(bp, ptr, copysize);
-  s mm_free(ptr);
+  mm_free(ptr);
   CHECK();
   return bp;
 }

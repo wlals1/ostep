@@ -1,32 +1,18 @@
 /*
- * mm-explicit.c — Explicit free list allocator with boundary tags
+ * mm-explicit.c — Explicit free list + boundary tags
  *
- *   블록 구조:  [헤더 4B][payload][푸터 4B]
- *               헤더/푸터 = size | alloc  (8정렬이라 하위 3비트가 남아 alloc
- * 비트로 겸용) 힙 구조:    [패딩][프롤로그 8/1][ ... 블록들 ... ][에필로그 0/1]
- *               프롤로그·에필로그는 sentinel — 경계 특수처리를 제거
+ *   블록:      [헤더 4B][payload][푸터 4B],  헤더/푸터 = size | alloc
+ *   free 블록: [헤더][prev 4B][next 4B][남는 공간][푸터]   ← payload에 링크를
+ * 심음 힙:        [패딩][프롤로그 8/1][ ... ][에필로그 0/1]   ← sentinel
  *
- *   배치 정책:  first fit
- *   병합:       즉시 병합 (coalesce), 4가지 경우
- *   분할:       남는 공간이 최소 블록(16B) 이상이면 split
- *   realloc:    ① 이미 충분 → 제자리
- *               ② 다음이 free이고 합치면 충분 → 흡수 (복사 없음)
- *               ③ 다음이 에필로그 → extend_heap 후 흡수 (복사 없음)
- *               ④ 그 외 → malloc + memcpy + free
+ *   free list: 이중 연결, LIFO 삽입
+ *   배치:      best fit (+ exact fit 조기 종료)
+ *   병합:      즉시 병합 4가지 경우
+ *   realloc:   제자리 확장 / 다음 블록 흡수 / 힙 확장 흡수 / fallback
+ *   CHUNKSIZE: 64  (측정으로 튜닝)
  *
- *   점수: 94/100  (util 54 + thru 40, 5회 실행 중앙값)
- *
- *   트레이스별 결과:
- *     amptjp 99% / cccp 99% / cp-decl 99% / expr 100%   ← 실제 프로그램은 거의
- * 완벽 coalescing 66% (thru는 최고) random 92% / random2 92% binary
- * 55%/184Kops,  binary2 51%/54~114Kops        ← ★ 병목 realloc 100%,  realloc2
- * 87%                        ← 제자리 확장으로 27%/34%에서 개선
- *
- *   병목 분석:
- *     binary 패턴 = [작은][큰][작은][큰]... 을 할당하고 작은 것만 free
- *       → util: 작은 free 블록이 큰 할당 블록에 가로막혀 병합 불가 (외부
- * 단편화) → thru: find_fit이 매번 힙 전체를 순회. 할당된 블록까지 전부 훑음.
- * O(n²) → 다음 단계: explicit free list (free 블록만 연결) → 둘 다 개선 기대
+ *   점수: 94/100 (util 54 + thru 40)
+ *   병목: binary-bal 55%, binary2 51% — 구조적 한계 (README 참고)
  */
 #include <assert.h>
 #include <stdio.h>
