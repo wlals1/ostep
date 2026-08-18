@@ -5,19 +5,22 @@
 
 ---
 
-## 진단 요약 (2026-07-16 작성, 2026-08-10 갱신)
+## 진단 요약 (2026-07-16 작성, 2026-08-16 갱신)
 
-- **현재 위치**: **Phase 3 Concurrency 개념 완료 (Ch 26~33).** 남은 것 = Ch10 재방문 + Phase 3 프로젝트 + 밀린 프로젝트들.
+- **현재 위치**: **Phase 1~3 완료 + malloc lab 완료(94/100).** 다음은 **Phase 4 xv6 커널 분석.**
 - **강점**:
   - 논리적 추론력 중상급. 반례 생성·논리 반박 잘함. 알고리즘은 골드 수준.
   - **스스로 실험을 설계해 검증하는 습관**이 확실히 자리잡음 (VSZ/RSS 실측, SIZESORT+ 반례, measure.c TLB 절벽).
   - **코치의 설명도 의심하고 반증함** — Ch27에서 "단일 코어는 최대 1 손실"이라는 내 설명을 2억 번 실행으로 반박. Ch28 `-i≥3이면 안전` 규칙도 스스로 반례를 물음. **이게 이 공부의 핵심 근육.**
-  - 책이 대충 넘어가는 지점을 먼저 의심함 (하이브리드 페이징 저장 비용, TLB 미스 핸들러 무한 재귀, 세마포어 `empty = N − fill` 관계).
+  - 책이 대충 넘어가는 지점을 먼저 의심함 (하이브리드 페이징 저장 비용, TLB 미스 핸들러 무한 재귀, 세마포어 `empty = N − fill` 관계, explicit list에서 푸터가 왜 필요한가).
+  - ★ **신규: 구조적 한계를 계산으로 확인하고 멈출 줄 앎** — malloc lab에서 binary-bal 55%가 워크로드 구조상 한계임을 산술로 증명하고 최적화를 중단. "더 하면 되겠지"가 아니라 "왜 안 되는지"를 확인.
+  - ★ **신규: 측정 규율** — 처리량 잡음(65는 이상치)을 여러 번 실행으로 판별. util은 결정적, thru는 변동이라는 것도 스스로 관찰.
 - **약점 / 주의**:
-  1. C 시스템 프로그래밍 관용구 경험 부족 (헤더, 포인터, 캐스팅). → 코드를 많이 돌려 몸으로.
+  1. C 시스템 프로그래밍 관용구 경험 부족 → **malloc lab으로 크게 보강됨.** 포인터 산술·캐스팅·매크로를 손에 익힘.
   2. **앞선 챕터 내용을 미리 물으면 위축됨.** 순서 건너뛰지 않기.
-  3. **비트/자릿수 계산에서 자주 미끄러짐.** 검산 습관으로 보완 중(효과 확인).
+  3. **비트/자릿수 계산, 주소 산술에서 자주 미끄러짐.** 검산 습관으로 보완 중(효과 확인).
   4. **여러 질문을 한꺼번에 받으면 무너짐** (Ch30에서 확인). → 코치는 **한 번에 하나만** 물을 것.
+  5. **오래 쉬면 세부를 잊음** — 개념 골격은 남지만 코드/수식 디테일이 날아감. **재개 시 노트의 요약부터 훑는 게 효율적.**
 
 ### 반복 실수 패턴 (누적 복습 대상)
 
@@ -31,7 +34,10 @@
 - 헤더 문제 — 누락뿐 아니라 **순서**도 (Ch27 `common.h`). → **self-contained header** 원칙.
 - **메모리 소유권**: `free`는 재귀 아님. "이 할당 누가 소유/해제?" 자문.
 - 시스템 함수 반환값 미확인 (fopen/stat/malloc/pthread_* 체크).
-- **연산자 우선순위 괄호** — reverse·wish·measure.c에서 **세 번 반복.** → 복잡한 수식은 **중간 변수로 쪼갤 것.**
+- **연산자 우선순위 괄호** — reverse·wish·measure.c·malloc lab에서 **다섯 번 반복.** → 복잡한 수식은 **중간 변수로 쪼갤 것.**
+  - `(x = f()) != NULL` — 대입을 괄호로 (`==`가 `=`보다 우선)
+  - `(a + b) / c` — 분자를 괄호로
+  - ★ **`a == b == 0`은 "둘 다 0"이 아님** — `(a==b)==0`으로 결합. 수학·파이썬과 다름. **`&&`로 명시할 것**
 - **"어디서"와 "왜"를 섞어 답함** → **"~때문에 ~가 된다"** 형태로 인과를 명시.
 - **가상 크기 ≠ 물리 소비.**
 - **문제 조건(정렬·헤더·페이지 크기)을 딴 문제에서 가져옴.**
@@ -42,8 +48,16 @@
   **진짜 원인 = 여러 실행 흐름의 순서가 보장되지 않는다** (버그가 아니라 동시성의 정의).
 - ★ **신규: 락이 변수 자체를 보호한다고 오해** → **락은 강제가 아니라 규약.** 그 데이터를 건드리는 **모든 코드**가 같은 락을 잡아야 성립.
 - ★ **신규: `while (cond) cond_wait()`을 스핀으로 오해** → `cond_wait`은 블로킹 호출. 깨어날 때만 루프가 돎. CPU 0.
+- ★ **신규(malloc lab): 주소를 다룰 때 "무엇을 가리키는지" 혼동**
+  - `GET_SIZE(bp)` vs `GET_SIZE(HDRP(bp))` — bp는 payload, 크기는 헤더에
+  - `GET_ALLOC(next)` vs `GET_ALLOC(HDRP(next))` — 같은 실수 반복
+  - `PREV_BLKP` 계산 시 **읽는 위치(bp-8)와 빼는 기준점(bp)을 혼동**
+  - **매크로가 이런 실수를 막아줌** — 오프셋을 손으로 세지 말 것
+- ★ **신규: 값 vs 주소** — `GET_SIZE`는 **주소를 받아 그 자리 값을 읽음**. 주소 자체를 연산하면 안 됨.
+- ★ **신규: 물리적 인접 vs 논리적(리스트) 인접을 섞음** — 병합은 물리, 탐색은 리스트. 각각 다른 자료가 담당.
 
 **검산 습관 (효과 확인됨)**: `0 ≤ offset < 페이지크기`, `VPN×크기+offset = 원주소`, `VPN+offset비트 = log₂(주소공간)`.
+**주소 산술도 구체적 숫자로 검산** — `NEXT_BLKP(1004) = 1028이 맞나?`처럼.
 
 ---
 
@@ -108,7 +122,9 @@ Ch19 TLB      → 히트 시 번역 0번.   위 두 대가를 한꺼번에 갚�
 - ✅ **Ch 32 Concurrency Bugs** — 비데드락 70%(원자성·순서 위반), **데드락 4조건**과 각 조건을 깨는 기법.
 - ✅ **Ch 33 Event-based** — 이벤트 루프, select/epoll, 논블로킹 I/O, **stack ripping → async/await**, C10K.
 - **체크포인트 ✅**: 데드락 4조건 + 코드에서 경쟁 상태 짚기.
-- **남은 것**: ⬜ **Ch 10 재방문** (락·캐시 일관성 관점), ⬜ Ch29 숙제(`threads-locks-usage`)
+- ✅ **Ch 10 재방문 완료** — 멀티프로세서 스케줄링을 락·캐시 일관성 관점에서 (Ch10 노트에 "📌 재방문" 섹션 추가)
+- ✅ **`threads-bugs` 숙제 완료** — 데드락 4조건 해법을 실제 코드로 비교
+- **남은 것**: ⬜ Ch29·30·31 숙제(`threads-locks-usage`, `threads-cv`, `threads-sema`) — 개념 확인용이라 우선순위 낮음
 
 ### Phase 3 관통 원리
 ```
@@ -124,19 +140,52 @@ Ch19 TLB      → 히트 시 번역 0번.   위 두 대가를 한꺼번에 갚�
 - **락은 규약이지 강제가 아님** — 컴파일러가 검사 못 함. (Rust `Mutex<T>`가 타입으로 해결)
 - **워크로드가 답을 정한다** — I/O 바운드면 이벤트, CPU 바운드면 스레드. (Ch22 "정책 순위는 워크로드가 결정"과 같은 사고)
 
-## Phase 4 — xv6 커널 분석 (프로젝트 최종 목표) ← 다음 후보
+## ★ CSAPP Malloc Lab ✅ (Ch17 심화 프로젝트, 2026-08-16 완료)
 
-전제: Phase 1~3 완료 ✅
+**94/100** (util 54/60 + thru 40/40). Ch17을 통째로 손으로 구현.
+
+```
+① implicit free list        67점   기본 동작
+② realloc 제자리 확장        75점   복사 회피 → realloc util 27%→100%
+③ explicit free list        89점   free 블록만 연결 → thru 만점 달성
+④ best fit                  91점   실제 프로그램 트레이스 99~100% 회복
+⑤ CHUNKSIZE 4096→64         94점   과할당 축소
+```
+
+**핵심 산출물:**
+- `mm_check` 불변식 검사기 — **implicit 때부터 잠복하던 8바이트 블록 버그**를 explicit 전환 시 포착
+- **binary-bal 55%가 구조적 한계임을 산술로 증명**하고 최적화 중단 (구멍 456 < 요청 520)
+- 측정 규율: 처리량 잡음 판별, "점수판이 전략을 바꾼다", 튜닝의 과적합 인식
+
+**남은 카드**(나중에): segregated free list / segregated storage / 할당 블록 푸터 제거
+
+## Phase 4 — xv6 커널 분석 (프로젝트 최종 목표) ← **지금 여기**
+
+전제: Phase 1~3 완료 ✅ + C 실력 보강(malloc lab) ✅
 
 - **xv6 book (riscv)** + 소스 병행. MIT 6.1810/6.S081 자료.
 - 분석 순서:
-  1. 부팅 → `main()` → 첫 프로세스
-  2. 프로세스/스케줄러 (`proc.c`, `swtch.S`) — Phase 1 대조
-  3. 시스템 콜/트랩 (`trap.c`, `syscall.c`) — Ch 6 대조
-  4. **가상 메모리 (`vm.c`, page table) — Phase 2 대조** ★ 멀티레벨·`__va()`/`__pa()`
-  5. **락 (`spinlock.c`, `sleeplock.c`) — Phase 3 대조** ★ Ch28의 TestAndSet 실물
-  6. 파일 시스템 (`fs.c`, `log.c`) — Phase 5와 함께
+  1. 환경 세팅 (QEMU, riscv toolchain) + xv6 book Ch 1
+  2. 부팅 → `main()` → 첫 프로세스
+  3. 프로세스/스케줄러 (`proc.c`, `swtch.S`) — Phase 1 대조
+  4. 시스템 콜/트랩 (`trap.c`, `syscall.c`) — Ch 6 대조
+  5. **가상 메모리 (`vm.c`, page table) — Phase 2 대조** ★ 멀티레벨·`__va()`/`__pa()`
+  6. **커널 할당기 (`kalloc.c`) — malloc lab 대조** ★ free list의 커널 버전
+  7. **락 (`spinlock.c`, `sleeplock.c`) — Phase 3 대조** ★ Ch28의 TestAndSet 실물, `push_off()`는 Ch28 인터럽트 끄기
+  8. 파일 시스템 (`fs.c`, `log.c`) — Phase 5와 함께
 - **방식**: "OSTEP 개념 X가 커널 어느 코드로 구현됐나" 매핑하며 읽기.
+
+**미리 알아둘 대조표:**
+| OSTEP 개념 | xv6 코드 |
+|--|--|
+| Ch6 트랩·문맥 교환 | `trap.c`, `swtch.S` |
+| Ch9 비례 배분 | (랩) `scheduling-xv6-lottery` |
+| Ch20 멀티레벨 페이지 테이블 | `vm.c`의 `walk()` |
+| Ch17 free list | `kalloc.c` (고정 크기 페이지 단위라 더 단순) |
+| Ch28 TestAndSet 스핀락 | `spinlock.c`의 `__sync_lock_test_and_set` |
+| Ch28 인터럽트 끄기 | `spinlock.c`의 `push_off()`/`pop_off()` |
+| Ch10 per-CPU 구조 | `struct cpu`, `mycpu()` |
+| Ch30 조건 변수 | `sleep()`/`wakeup()` |
 
 ## Phase 5 — Persistence (Ch 36~43, xv6 FS와 병행)
 
@@ -157,8 +206,9 @@ Ch19 TLB      → 히트 시 번역 0번.   위 두 대가를 한꺼번에 갚�
 | **processes-shell (wish)** | Phase 1 끝 | ✅ fork/exec/wait + path + `>` + `&` |
 | **measure.c (TLB 실측)** | Ch19 | ✅ 함정 3개(page fault/컴파일러/타이머) 처리 |
 | **race.c + helgrind** | Ch27 | ✅ 멀티코어 50% 손실, 단일코어 2억 번 반례 |
+| **threads-bugs 숙제** | Ch32 | ✅ 데드락 4조건 해법 5종 실측 비교 |
+| **CSAPP malloc lab** | Ch17 심화 | ✅ **94/100.** implicit→explicit→best fit→튜닝 |
 | **mini-pmap** (/proc 파서) | Phase 2 복습 | 🔶 **설계 중단** — maps/smaps/pagemap 파악, `VPN=VA/4096`·`offset=VPN*8` 도출까지. 남은 것: sscanf 파싱 / 큰 구간 출력 / 권한 실패 대응 → 코딩 |
-| **CSAPP malloc lab** | Phase 2 복습 | ⬜ 예정 (분량 큼, 며칠) |
 | concurrency-pzip | Phase 3 | ⬜ 멀티스레드 압축 |
 | concurrency-webserver | Phase 3 | ⬜ **스레드 방식 vs 이벤트 방식 직접 비교** (Ch33) |
 | concurrency-mapreduce | Phase 3 | ⬜ |
@@ -182,11 +232,13 @@ Ch19 TLB      → 히트 시 번역 0번.   위 두 대가를 한꺼번에 갚�
 | Ch27 Thread API | `threads-api` (helgrind) |
 | Ch28 Locks | `threads-locks` (x86.py + xchg/fetchadd) |
 | Ch29 Lock-based DS | `threads-locks-usage` ⬜ 안 함 |
-| Ch30 CV / Ch31 Sema / Ch32 Bugs | `threads-cv` / `threads-sema` / `threads-bugs` ⬜ 안 함 |
+| Ch30 CV / Ch31 Sema | `threads-cv` / `threads-sema` ⬜ 안 함 |
+| **Ch32 Bugs** | **`threads-bugs`** ✅ 완료 |
+| Ch17 심화 | CSAPP `malloclab-handout` ✅ 완료 (94/100) |
 
 ---
 
-## 스케줄 (2026-07-16 시작, ~26일 경과)
+## 스케줄 (2026-07-16 시작, ~한 달 경과)
 
 > 진도보다 **깊이 우선**.
 
@@ -195,25 +247,28 @@ Ch19 TLB      → 히트 시 번역 0번.   위 두 대가를 한꺼번에 갚�
 ### Week 3 ✅ 메모리 가상화 ② (Ch 18~22) — 체크포인트 통과
 ### (1주 휴식) — 7월 말~8월 초. **문제 없음.** 원래 페이스가 빨랐던 것.
 ### Week 4 ✅ 동시성 (Ch 26~33) — 체크포인트 통과
-### Week 5 ← 지금 — **선택 구간** (아래 "다음 할 일" 참고)
-### Week 6 — xv6 심화 + Persistence + 버퍼
+### Week 5 ✅ Ch10 재방문 + threads-bugs 숙제 + **malloc lab (94/100)**
+### Week 6 ← 지금 — **Phase 4 xv6 착수**
+### Week 7~ — xv6 심화 + Persistence
 
 > **버퍼 규칙**: 밀리면 흡수. 2학년 여름방학이라 시간 여유 있음.
 > **어려운 장(18~20, 28~31)은 나중에 한 번 더 돌 것.** 노트가 그때를 위해 쓰여 있음.
 
 ---
 
-## 다음 할 일 (Week 5 선택지)
+## 다음 할 일
 
-| 후보 | 내용 | 성격 |
-|--|--|--|
-| **A. Phase 4 xv6 착수** | QEMU/riscv 환경 세팅 → boot → proc.c/swtch.S → trap.c | 로드맵의 **최종 목표**. Phase 1~3을 실제 커널 코드로 회수 |
-| **B. Phase 3 프로젝트** | pzip(멀티스레드 압축) 또는 webserver(스레드 vs 이벤트 비교) | 배운 동시성을 **손으로** 구현. webserver는 Ch33 직결 |
-| **C. 밀린 프로젝트** | mini-pmap 마무리 → malloc lab | Phase 2 복습 + C 실력 |
-| **D. Ch10 재방문** | 멀티프로세서 스케줄링을 락·캐시 일관성 관점에서 | 짧음(1시간). 다른 것과 병행 가능 |
+**① Phase 4 xv6 착수** ← 지금
+```
+환경 세팅(QEMU + riscv toolchain) → xv6 book Ch1 → boot/main → proc.c/swtch.S
+```
+**전제가 다 갖춰졌음** — Phase 1~3 개념 + malloc lab으로 C 실력 보강 완료.
 
-**권장 순서**: D(짧음) → B(webserver, Ch33 기억이 신선할 때) → A(xv6) → C
-※ 단 C의 malloc lab은 C 실력 보강에 가장 효과적이라, C 코딩이 약하다고 느끼면 먼저 해도 좋음.
+**언제든 끼워 넣을 수 있는 것 (독립적):**
+- **concurrency-webserver** — Ch33의 스레드 vs 이벤트를 직접 비교. 재밌을 것
+- **mini-pmap** — 설계 중단분. Phase 2 복습
+- **segregated free list** — malloc lab 이어서 (OSTEP 더 공부한 뒤에 하기로)
+- Ch29~31 숙제 — 개념 확인용, 우선순위 낮음
 
 ---
 
@@ -227,6 +282,8 @@ Ch19 TLB      → 히트 시 번역 0번.   위 두 대가를 한꺼번에 갚�
 6. **답할 때 식만 쓰지 말고 숫자까지 낼 것.** 검산도 함께.
 7. ★ **코치는 한 번에 하나만 물을 것.** 세 개를 동시에 던지면 무너짐(Ch30에서 확인).
 8. ★ **코치의 설명도 의심할 것.** 실제로 두 번 반증에 성공했음(Ch27 단일코어 손실, Ch28 인터럽트 간격).
+9. ★ **오래 쉬고 돌아오면 노트 요약부터 훑기.** 개념은 남지만 디테일은 날아감. 처음부터 다시 하지 말 것.
+10. ★ **큰 프로젝트는 "동작 → 검사기 → 최적화" 순서로.** 검사기 없이 최적화하면 버그를 못 찾음 (malloc lab에서 확인).
 
 ---
 
@@ -234,15 +291,16 @@ Ch19 TLB      → 히트 시 번역 0번.   위 두 대가를 한꺼번에 갚�
 
 - [x] Ch 2 Introduction
 - [x] 워밍업: reverse / unix-utilities / ssort
-- [x] **Phase 1: CPU Virtualization (Ch 4~10)**
+- [x] **Phase 1: CPU Virtualization (Ch 4~10)** — Ch10 재방문까지 ✅
 - [x] 프로젝트: **wish 셸**
 - [x] **Phase 2: Memory Virtualization (Ch 13~22)** ✅ 체크포인트 통과
 - [x] **Phase 3: Concurrency (Ch 26~33)** ✅ 체크포인트 통과
   - [x] Ch 26 Intro (x86.py) / Ch 27 Thread API (race.c, helgrind) / Ch 28 Locks (x86.py)
-  - [x] Ch 29 Lock-based DS / Ch 30 CV / Ch 31 Semaphores / Ch 32 Bugs / Ch 33 Event-based
-  - [ ] Ch 10 재방문
-  - [ ] Ch 29~32 숙제 (`threads-locks-usage`, `threads-cv`, `threads-sema`, `threads-bugs`)
-- [ ] **밀린 프로젝트**: mini-pmap(설계 중단), CSAPP malloc lab
-- [ ] **Phase 3 프로젝트**: pzip / webserver / mapreduce
-- [ ] Phase 4: xv6 커널 분석
+  - [x] Ch 29 Lock-based DS / Ch 30 CV / Ch 31 Semaphores / Ch 32 Bugs (threads-bugs) / Ch 33 Event-based
+  - [x] Ch 10 재방문 (락·캐시 일관성 관점)
+  - [ ] Ch 29~31 숙제 (`threads-locks-usage`, `threads-cv`, `threads-sema`) — 우선순위 낮음
+- [x] **CSAPP malloc lab** ✅ 94/100 (implicit → explicit → best fit → 튜닝)
+- [ ] **Phase 4: xv6 커널 분석** ← **지금**
+- [ ] 밀린 것: mini-pmap(설계 중단), segregated free list
+- [ ] Phase 3 프로젝트: pzip / webserver / mapreduce
 - [ ] Phase 5: Persistence (Ch 36~43)
